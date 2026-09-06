@@ -1,5 +1,10 @@
 mod grid;
+mod movement;
 mod rules;
+mod sim;
+mod state;
+mod test_support;
+mod unit;
 
 use bevy::prelude::*;
 
