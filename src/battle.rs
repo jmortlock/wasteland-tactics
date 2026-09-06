@@ -3,6 +3,8 @@
 //! `Action`s and animates the returned `BattleEvent`s; nothing else mutates state.
 #![allow(dead_code)] // removed in Task 9 when the engine is wired into the app
 
+use std::collections::HashMap;
+
 use bevy::prelude::Resource;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -240,8 +242,7 @@ impl Battle {
                 self.validate_shot(unit, target, false)?;
                 self.fire(unit, target, false, &mut events);
             }
-            // Task 3 replaces this arm.
-            Action::Move { .. } => return Err(ActionError::NotYourTurn),
+            Action::Move { unit, path } => self.walk(unit, &path, &mut events)?,
         }
         self.check_outcome(&mut events);
         Ok(events)
@@ -335,6 +336,111 @@ impl Battle {
             t.alive = false;
             events.push(BattleEvent::Died(target));
         }
+    }
+
+    fn validate_path(&self, unit: UnitId, path: &[GridPos]) -> Result<(), ActionError> {
+        let u = self.living_unit(unit)?;
+        if u.side != self.turn {
+            return Err(ActionError::NotYourTurn);
+        }
+        if path.is_empty() {
+            return Err(ActionError::EmptyPath);
+        }
+        let need = path.len() as i32 * tuning::MOVE_COST;
+        if u.ap < need {
+            return Err(ActionError::NotEnoughAp { need, have: u.ap });
+        }
+        let mut prev = u.pos;
+        for &cell in path {
+            if !self.grid.is_walkable(cell) {
+                return Err(ActionError::PathNotWalkable(cell));
+            }
+            if prev.distance(cell) != 1 {
+                return Err(ActionError::PathNotContiguous);
+            }
+            let (dx, dy) = (cell.x - prev.x, cell.y - prev.y);
+            let diagonal = dx != 0 && dy != 0;
+            if diagonal
+                && !(self.grid.is_walkable(GridPos::new(prev.x + dx, prev.y))
+                    && self.grid.is_walkable(GridPos::new(prev.x, prev.y + dy)))
+            {
+                return Err(ActionError::PathNotContiguous);
+            }
+            if self.unit_at(cell).is_some() {
+                return Err(ActionError::CellOccupied(cell));
+            }
+            prev = cell;
+        }
+        Ok(())
+    }
+
+    fn walk(
+        &mut self,
+        unit: UnitId,
+        path: &[GridPos],
+        events: &mut Vec<BattleEvent>,
+    ) -> Result<(), ActionError> {
+        self.validate_path(unit, path)?;
+        for &cell in path {
+            let from = self.units[unit.0 as usize].pos;
+            {
+                let u = &mut self.units[unit.0 as usize];
+                u.pos = cell;
+                u.ap -= tuning::MOVE_COST;
+            }
+            events.push(BattleEvent::Stepped {
+                unit,
+                from,
+                to: cell,
+            });
+            self.react_to(unit, events);
+            if !self.units[unit.0 as usize].alive {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Reaction fire after a step. Filled in by Task 4.
+    fn react_to(&mut self, _mover: UnitId, _events: &mut Vec<BattleEvent>) {}
+
+    /// King-move neighbours that are walkable, corner-safe and unoccupied, unit cost.
+    fn step_successors(&self, p: GridPos) -> Vec<(GridPos, i32)> {
+        self.grid
+            .neighbours(p)
+            .into_iter()
+            .filter(|(n, _)| self.unit_at(*n).is_none())
+            .map(|(n, _)| (n, 1))
+            .collect()
+    }
+
+    /// Every cell the unit can reach this turn, mapped to its AP cost. Excludes the start cell.
+    pub fn reachable(&self, unit: UnitId) -> HashMap<GridPos, i32> {
+        let Some(u) = self.unit(unit).filter(|u| u.alive) else {
+            return HashMap::new();
+        };
+        let budget = u.ap / tuning::MOVE_COST;
+        pathfinding::directed::dijkstra::dijkstra_all(&u.pos, |p| self.step_successors(*p))
+            .into_iter()
+            .filter(|(_, (_, steps))| *steps <= budget)
+            .map(|(cell, (_, steps))| (cell, steps * tuning::MOVE_COST))
+            .collect()
+    }
+
+    /// Cheapest path to `goal` avoiding units, or `None` if unreachable or over the unit's AP.
+    pub fn path_to(&self, unit: UnitId, goal: GridPos) -> Option<Vec<GridPos>> {
+        let u = self.unit(unit).filter(|u| u.alive)?;
+        if goal == u.pos || self.unit_at(goal).is_some() || !self.grid.is_walkable(goal) {
+            return None;
+        }
+        let (mut path, steps) = pathfinding::directed::astar::astar(
+            &u.pos,
+            |p| self.step_successors(*p),
+            |p| p.distance(goal),
+            |p| *p == goal,
+        )?;
+        path.remove(0);
+        (steps * tuning::MOVE_COST <= u.ap).then_some(path)
     }
 
     fn switch_turn(&mut self, events: &mut Vec<BattleEvent>) {
@@ -605,5 +711,130 @@ mod tests {
                 .any(|e| matches!(e, BattleEvent::BattleOver(_)))
         );
         assert_eq!(b.outcome(), None);
+    }
+
+    fn mv(b: &mut Battle, unit: u32, path: &[(i32, i32)]) -> Result<Vec<BattleEvent>, ActionError> {
+        b.apply(Action::Move {
+            unit: UnitId(unit),
+            path: path.iter().map(|&(x, y)| GridPos::new(x, y)).collect(),
+        })
+    }
+
+    #[test]
+    fn moving_emits_one_step_per_cell_and_spends_ap() {
+        let mut b = Battle::from_ascii("P....", 1);
+        let events = mv(&mut b, 0, &[(1, 0), (2, 0), (3, 0)]).unwrap();
+        assert_eq!(
+            events,
+            vec![
+                BattleEvent::Stepped {
+                    unit: UnitId(0),
+                    from: GridPos::new(0, 0),
+                    to: GridPos::new(1, 0)
+                },
+                BattleEvent::Stepped {
+                    unit: UnitId(0),
+                    from: GridPos::new(1, 0),
+                    to: GridPos::new(2, 0)
+                },
+                BattleEvent::Stepped {
+                    unit: UnitId(0),
+                    from: GridPos::new(2, 0),
+                    to: GridPos::new(3, 0)
+                },
+            ]
+        );
+        assert_eq!(b.unit(UnitId(0)).unwrap().pos, GridPos::new(3, 0));
+        assert_eq!(b.unit(UnitId(0)).unwrap().ap, tuning::SOLDIER_AP - 3);
+        assert_eq!(
+            mv(&mut b, 0, &[(4, 0), (3, 0), (4, 0), (3, 0)]),
+            Err(ActionError::NotEnoughAp { need: 4, have: 3 })
+        );
+    }
+
+    #[test]
+    fn move_validation_errors_leave_state_untouched() {
+        let mut b = Battle::from_ascii("P#.\n.P.\n..E", 1);
+        let before = b.clone();
+        assert_eq!(mv(&mut b, 0, &[]), Err(ActionError::EmptyPath));
+        assert_eq!(
+            mv(&mut b, 0, &[(1, 2)]),
+            Err(ActionError::PathNotWalkable(GridPos::new(1, 2)))
+        );
+        assert_eq!(
+            mv(&mut b, 0, &[(2, 2)]),
+            Err(ActionError::PathNotContiguous),
+            "two cells away"
+        );
+        // (0,2)->(1,1) is a diagonal past the wall at (1,2): corner cutting is checked before occupancy.
+        assert_eq!(
+            mv(&mut b, 0, &[(1, 1)]),
+            Err(ActionError::PathNotContiguous)
+        );
+        // (1,1)->(2,0) is a legal diagonal, but the enemy stands on (2,0).
+        assert_eq!(
+            mv(&mut b, 1, &[(2, 0)]),
+            Err(ActionError::CellOccupied(GridPos::new(2, 0)))
+        );
+        assert_eq!(mv(&mut b, 2, &[(1, 0)]), Err(ActionError::NotYourTurn));
+        assert_eq!(b.units, before.units);
+    }
+
+    #[test]
+    fn no_corner_cutting_on_moves() {
+        let mut b = Battle::from_ascii("#.\nP#", 1);
+        assert_eq!(
+            mv(&mut b, 0, &[(1, 1)]),
+            Err(ActionError::PathNotContiguous)
+        );
+    }
+
+    #[test]
+    fn reachable_respects_ap_and_occupancy() {
+        let mut b = Battle::from_ascii(".......\n..P.E..\n.......", 1);
+        b.units[0].ap = 2;
+        let reach = b.reachable(UnitId(0));
+        assert_eq!(reach.get(&GridPos::new(3, 1)), Some(&1));
+        assert_eq!(reach.get(&GridPos::new(0, 1)), Some(&2));
+        assert_eq!(
+            reach.get(&GridPos::new(5, 1)),
+            None,
+            "3 cells away with 2 AP"
+        );
+        assert_eq!(
+            reach.get(&GridPos::new(4, 1)),
+            None,
+            "the enemy stands there"
+        );
+        assert_eq!(reach.get(&GridPos::new(2, 1)), None, "start cell excluded");
+        // Every in-bounds cell within Chebyshev distance 2 of (2,1): x 0..=4, y 0..=2 = 15,
+        // minus the start cell and the enemy's cell.
+        assert_eq!(reach.len(), 13);
+    }
+
+    #[test]
+    fn path_to_is_within_ap_and_avoids_units() {
+        let b = Battle::from_ascii("P.E..", 1);
+        assert_eq!(
+            b.path_to(UnitId(0), GridPos::new(2, 0)),
+            None,
+            "occupied goal"
+        );
+        assert_eq!(
+            b.path_to(UnitId(0), GridPos::new(3, 0)),
+            None,
+            "only route is through the enemy on a 1-row map"
+        );
+        let mut open = Battle::from_ascii("P....\n.....", 1);
+        assert_eq!(
+            open.path_to(UnitId(0), GridPos::new(2, 0)),
+            Some(vec![GridPos::new(1, 0), GridPos::new(2, 0)])
+        );
+        open.units[0].ap = 1;
+        assert_eq!(
+            open.path_to(UnitId(0), GridPos::new(2, 0)),
+            None,
+            "costs 2, has 1"
+        );
     }
 }
