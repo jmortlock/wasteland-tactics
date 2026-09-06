@@ -40,14 +40,15 @@ pub fn submit(
     Ok(())
 }
 
-/// Once the queue is drained: hand control to whichever side's turn it is.
+/// Once the queue is drained AND the animator is idle: hand control to whichever side's turn it is.
 /// A finished battle stays in `Animating` with an empty queue until `R` restarts it.
 pub fn after_animation(
     battle: Res<Battle>,
     queue: Res<EventQueue>,
+    animation: Res<Animation>,
     mut next: ResMut<NextState<AppState>>,
 ) {
-    if !queue.0.is_empty() || battle.outcome().is_some() {
+    if !queue.0.is_empty() || !animation.is_idle() || battle.outcome().is_some() {
         return;
     }
     next.set(match battle.turn() {
@@ -126,6 +127,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.insert_resource(Battle::from_ascii(art, 1));
         app.init_resource::<EventQueue>();
+        app.init_resource::<Animation>();
         app.insert_state(AppState::PlayerInput);
         app.add_systems(
             Update,
@@ -193,5 +195,24 @@ mod tests {
             app.update();
         }
         assert_eq!(state(&app), AppState::Animating);
+    }
+
+    #[test]
+    fn a_busy_animator_holds_the_animating_phase() {
+        let mut app = app("P...E");
+        app.insert_resource(Animation::busy_for_test());
+        app.insert_state(AppState::Animating);
+        for _ in 0..5 {
+            app.update();
+        }
+        assert_eq!(
+            state(&app),
+            AppState::Animating,
+            "must wait for the walk to finish"
+        );
+        app.insert_resource(Animation::default());
+        app.update();
+        app.update();
+        assert_eq!(state(&app), AppState::PlayerInput);
     }
 }

@@ -28,8 +28,8 @@ reaction fire.
   same pace as the player's units.
 - **Reaction fire:** AP a unit did not spend becomes shots during the
   opponent's turn: whenever an enemy unit steps into a cell that a unit with
-  enough AP can see, that unit fires at it. Reaction shots are drawn and
-  sounded distinctly from ordinary shots.
+  enough AP can see, that unit fires at it. Reaction shots are drawn
+  distinctly (red tracer, longer hold); they use the same sound clips.
 - The overlay shows `YOUR TURN <n>` / `ENEMY TURN` / `VICTORY` / `DEFEAT`.
   `R` restarts the battle with the same map and seed. Space is unused.
 - Same map, same seven units, same art and sound as slice 1.

@@ -107,6 +107,9 @@ pub fn player_input(
     let under = unit_under(&battle, &sprites, world);
 
     if left {
+        if under.is_some_and(|id| battle.unit(id).is_some_and(|u| u.side == Side::Enemy)) {
+            return;
+        }
         selected.0 = under.filter(|id| battle.unit(*id).is_some_and(|u| u.side == Side::Player));
         return;
     }
@@ -116,7 +119,12 @@ pub fn player_input(
     };
     let action = match under {
         Some(target) if battle.unit(target).is_some_and(|u| u.side == Side::Enemy) => {
-            Action::Shoot { unit, target }
+            if battle.hit_chance(unit, target).is_some() {
+                Action::Shoot { unit, target }
+            } else {
+                info!("cannot shoot that target (out of range or no line of sight)");
+                return;
+            }
         }
         _ => {
             let goal = GridPos::from_world(world);

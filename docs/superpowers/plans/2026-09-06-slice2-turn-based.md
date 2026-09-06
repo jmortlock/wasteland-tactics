@@ -1506,14 +1506,15 @@ pub fn submit(
     Ok(())
 }
 
-/// Once the queue is drained: hand control to whichever side's turn it is.
+/// Once the queue is drained AND the animator is idle: hand control to whichever side's turn it is.
 /// A finished battle stays in `Animating` with an empty queue until `R` restarts it.
 pub fn after_animation(
     battle: Res<Battle>,
     queue: Res<EventQueue>,
+    animation: Res<Animation>,
     mut next: ResMut<NextState<AppState>>,
 ) {
-    if !queue.0.is_empty() || battle.outcome().is_some() {
+    if !queue.0.is_empty() || !animation.is_idle() || battle.outcome().is_some() {
         return;
     }
     next.set(match battle.turn() {
@@ -1521,7 +1522,10 @@ pub fn after_animation(
         Side::Player => AppState::PlayerInput,
     });
 }
+```
+(Corrected after the final review: the original gated only on the queue and stranded sprites one tile short.)
 
+```rust
 /// One planner step per visit: apply the next enemy action (or end the enemy turn),
 /// queue the events, animate. Runs exactly once per entry into `EnemyTurn`.
 pub fn drive_enemy_turn(

@@ -1,5 +1,5 @@
 //! Gizmo overlays (selection ring, health bars, AP pips) and shot tracers, read from the `Battle`.
-//! Planning previews (reach, path, hit chance) are added in Task 10.
+//! Also the planning previews: reach tint, hovered path with AP cost, hit chance.
 
 use bevy::color::palettes::css::{LIME, ORANGE, RED, WHITE, YELLOW};
 use bevy::prelude::*;
@@ -109,6 +109,11 @@ pub fn spawn_hover_label(mut commands: Commands) {
         Transform::from_xyz(0.0, 0.0, 20.0),
         Visibility::Hidden,
     ));
+}
+
+/// Hides the hover label when the player's input phase ends, so no stale cost or hit chance lingers.
+pub fn hide_hover_label(mut label: Single<&mut Visibility, With<HoverLabel>>) {
+    **label = Visibility::Hidden;
 }
 
 /// Reachable cells, hovered path with AP cost, hit chance on a hovered enemy.

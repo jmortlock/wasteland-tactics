@@ -149,8 +149,7 @@ mod tests {
 
     #[test]
     fn advances_toward_an_unseen_player_keeping_a_shot_in_hand() {
-        // Wall column at x=3 (all rows) except a gap... no gap: enemy cannot see or reach; so use a
-        // long open row where the player is simply out of range (distance 10 > range 7).
+        // Open row; the player is out of range (distance 10 > range 7), so nothing is visible.
         let b = enemy_turn("P.........E");
         let action = plan_enemy_action(&b).expect("advances");
         let Action::Move { unit, path } = action else {

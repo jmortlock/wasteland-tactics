@@ -725,6 +725,19 @@ mod tests {
     }
 
     #[test]
+    fn shooting_never_triggers_reaction_fire() {
+        let mut b = Battle::from_ascii("P...E", 3);
+        b.units_mut_for_test()[1].ap = 30;
+        let events = shoot(&mut b, 0, 1).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, BattleEvent::ReactionShot { .. }))
+        );
+        assert_eq!(b.unit(UnitId(1)).unwrap().ap, 30, "the enemy spent nothing");
+    }
+
+    #[test]
     fn shot_validation_errors_leave_state_untouched() {
         let mut b = Battle::from_ascii("P.#.E\nP....", 1);
         let before = b.clone();
@@ -1003,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    fn cover_halves_reaction_and_direct_hits_over_a_seeded_volley() {
+    fn cover_halves_direct_hits_over_a_seeded_volley() {
         // Shooter at (2,0) fires north at a target on (2,2). 'v' shelters the south side.
         fn damage_after(seed: u64, target_glyph: char) -> i32 {
             let art = format!("..{target_glyph}..\n.....\n..P..");
@@ -1031,10 +1044,7 @@ mod tests {
         let covered = damage_after(11, 'v');
         let wrong_side = damage_after(11, '^');
         assert!(covered < open * 7 / 10, "cover {covered} vs open {open}");
-        assert!(
-            (wrong_side - open).abs() < open / 5,
-            "wrong side {wrong_side} vs open {open}"
-        );
+        assert_eq!(wrong_side, open, "cover facing away changes nothing");
     }
 
     #[test]

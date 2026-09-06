@@ -41,6 +41,7 @@ impl Plugin for PresentationPlugin {
                 .chain()
                 .run_if(in_state(AppState::PlayerInput)),
         )
+        .add_systems(OnExit(AppState::PlayerInput), render::hide_hover_label)
         .add_systems(
             Update,
             (animator::animate, phase::after_animation)

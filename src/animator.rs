@@ -34,6 +34,19 @@ enum Playing {
     Hold { remaining: f32 },
 }
 
+impl Animation {
+    /// True when no event is being played.
+    pub fn is_idle(&self) -> bool {
+        self.0.is_none()
+    }
+
+    /// Test-only: an animation that is mid-walk, to exercise the phase gate.
+    #[cfg(test)]
+    pub fn busy_for_test() -> Self {
+        Animation(Some(Playing::Hold { remaining: 1.0 }))
+    }
+}
+
 fn sprite_pos(
     sprites: &Query<(&UnitSprite, &mut Transform, &mut Sprite)>,
     id: UnitId,

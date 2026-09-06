@@ -1,4 +1,4 @@
-//! Text overlay: PAUSED / VICTORY / DEFEAT plus a one-line controls hint.
+//! Text overlay: turn / VICTORY / DEFEAT plus a one-line controls hint.
 
 use bevy::prelude::*;
 
