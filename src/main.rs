@@ -1,6 +1,7 @@
 // Modules are wired up task by task; remove this once every public item has a consumer (planned for Task 14).
 #![allow(dead_code)]
 
+mod combat;
 mod grid;
 mod movement;
 mod rules;

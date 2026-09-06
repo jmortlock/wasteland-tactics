@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::combat;
 use crate::movement;
 use crate::rules::GameRng;
 use crate::state::{self, AppState};
@@ -25,7 +26,12 @@ impl Plugin for SimulationPlugin {
         }
         app.add_systems(
             Update,
-            (movement::plan_paths, movement::follow_paths)
+            (
+                movement::plan_paths,
+                movement::follow_paths,
+                combat::resolve_attacks,
+                combat::apply_death,
+            )
                 .chain()
                 .run_if(in_state(AppState::Playing)),
         );
