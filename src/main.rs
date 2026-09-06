@@ -3,6 +3,7 @@
 
 mod ai;
 mod assets;
+mod audio;
 mod camera;
 mod combat;
 mod debug;
@@ -16,6 +17,7 @@ mod rules;
 mod sim;
 mod state;
 mod test_support;
+mod ui;
 mod unit;
 
 use bevy::prelude::*;
