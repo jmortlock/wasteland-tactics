@@ -10,8 +10,11 @@ in the spirit of Fallout Tactics.
 `--features dynamic` links Bevy dynamically for fast rebuilds. Omit it for a
 standalone binary.
 
-Controls: left click selects a soldier (or keys 1–4), right click moves,
-right click on an enemy attacks, Space pauses, WASD pans, mouse wheel zooms.
+Squad turn-based: each soldier has action points (1 per cell moved, 3 per shot).
+Left click or keys 1–4 select a soldier; hovering shows reachable cells, the path
+and its AP cost, or the hit chance on an enemy. Right click moves or shoots.
+Enter ends your turn; enemies then act. Unspent AP fires reaction shots at enemies
+that move into view during their turn. R restarts, WASD pans, mouse wheel zooms.
 
 ## Develop
 
@@ -20,7 +23,7 @@ right click on an enemy attacks, Space pauses, WASD pans, mouse wheel zooms.
     cargo fmt
     cargo run --features dynamic,inspector   # live entity inspector (egui)
     WT_SCREENSHOT=out.png cargo run --features dynamic   # screenshot after 2 s, then exit
-    cargo run --features dynamic -- --seed 42            # fixed dice stream (frame timing still varies)
+    cargo run --features dynamic -- --seed 42            # same seed + same clicks = same battle
 
 Linux builds link with mold and clang (sudo apt install mold clang); see .cargo/config.toml.
 
@@ -31,4 +34,4 @@ Maps: `tools/gen_map.py` regenerates `assets/maps/mission01.tmx` from ASCII; ope
 
 ## Status
 
-Slice 1 (one squad, one map) — see `docs/superpowers/specs/` and the GitHub milestone.
+Slice 2 (squad turn-based core loop) — see `docs/superpowers/specs/2026-09-06-slice2-turn-based-design.md`.

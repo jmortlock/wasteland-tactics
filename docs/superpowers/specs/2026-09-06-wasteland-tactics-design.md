@@ -1,5 +1,7 @@
 # Wasteland Tactics — design spec
 
+> Superseded on the core loop by `2026-09-06-slice2-turn-based-design.md` (squad turn-based). Rules, assets and layout still apply.
+
 Date: 2026-09-06
 Status: approved in brainstorming, awaiting implementation plan
 
