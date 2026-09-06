@@ -109,6 +109,30 @@ pub struct Grid {
     cells: Vec<Cell>,
 }
 
+/// Bresenham line from `a` to `b`, inclusive of both ends, one cell per step.
+pub fn line(a: GridPos, b: GridPos) -> Vec<GridPos> {
+    let (mut x, mut y) = (a.x, a.y);
+    let dx = (b.x - a.x).abs();
+    let dy = -(b.y - a.y).abs();
+    let sx = if a.x < b.x { 1 } else { -1 };
+    let sy = if a.y < b.y { 1 } else { -1 };
+    let mut err = dx + dy;
+    let mut out = vec![a];
+    while (x, y) != (b.x, b.y) {
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y += sy;
+        }
+        out.push(GridPos::new(x, y));
+    }
+    out
+}
+
 impl Grid {
     /// An all-floor grid.
     pub fn new(width: i32, height: i32) -> Self {
@@ -184,6 +208,36 @@ impl Grid {
 
     pub fn is_walkable(&self, p: GridPos) -> bool {
         self.get(p).is_some_and(|c| c.walkable)
+    }
+
+    /// True when no sight-blocking cell lies strictly between `a` and `b`.
+    pub fn has_line_of_sight(&self, a: GridPos, b: GridPos) -> bool {
+        let cells = line(a, b);
+        cells[1..cells.len().saturating_sub(1).max(1)]
+            .iter()
+            .all(|p| !self.get(*p).is_some_and(|c| c.blocks_sight))
+    }
+
+    /// True when the last step of the shooter→target line enters the target's cell
+    /// through a side that cell shelters. Diagonal entries count either side.
+    pub fn cover_against(&self, target: GridPos, shooter: GridPos) -> bool {
+        let Some(cell) = self.get(target) else {
+            return false;
+        };
+        if !cell.cover.any() {
+            return false;
+        }
+        let cells = line(shooter, target);
+        if cells.len() < 2 {
+            return false;
+        }
+        let prev = cells[cells.len() - 2];
+        let dx = target.x - prev.x; // >0 : shot travelling east, enters through the west side
+        let dy = target.y - prev.y; // >0 : shot travelling north, enters through the south side
+        (dy < 0 && cell.cover.n)
+            || (dy > 0 && cell.cover.s)
+            || (dx < 0 && cell.cover.e)
+            || (dx > 0 && cell.cover.w)
     }
 }
 
@@ -279,5 +333,69 @@ mod tests {
             }
         );
         assert!(!CoverSides::parse("xyz").any());
+    }
+
+    #[test]
+    fn bresenham_line_is_inclusive_and_connected() {
+        let l = line(GridPos::new(0, 0), GridPos::new(4, 2));
+        assert_eq!(l.first(), Some(&GridPos::new(0, 0)));
+        assert_eq!(l.last(), Some(&GridPos::new(4, 2)));
+        assert_eq!(l.len(), 5, "one cell per x step on a shallow line");
+        for w in l.windows(2) {
+            assert_eq!(
+                w[0].distance(w[1]),
+                1,
+                "consecutive cells are king-adjacent"
+            );
+        }
+        assert_eq!(
+            line(GridPos::new(2, 2), GridPos::new(2, 2)),
+            vec![GridPos::new(2, 2)]
+        );
+    }
+
+    #[test]
+    fn walls_block_sight_but_cover_does_not() {
+        let g = Grid::from_ascii(".#.\n...\n.^.");
+        // top row y=2: (0,2) . (1,2) # (2,2) .
+        assert!(
+            !g.has_line_of_sight(GridPos::new(0, 2), GridPos::new(2, 2)),
+            "wall between"
+        );
+        assert!(
+            g.has_line_of_sight(GridPos::new(0, 0), GridPos::new(2, 0)),
+            "cover between"
+        );
+        assert!(g.has_line_of_sight(GridPos::new(0, 1), GridPos::new(2, 1)));
+        assert!(
+            g.has_line_of_sight(GridPos::new(0, 2), GridPos::new(1, 2)),
+            "endpoints never block"
+        );
+    }
+
+    #[test]
+    fn cover_is_directional() {
+        let g = Grid::from_ascii("...\n.^.\n...");
+        let target = GridPos::new(1, 1); // sheltered on its north side
+        assert!(
+            g.cover_against(target, GridPos::new(1, 2)),
+            "shot from north"
+        );
+        assert!(
+            !g.cover_against(target, GridPos::new(1, 0)),
+            "shot from south"
+        );
+        assert!(
+            !g.cover_against(target, GridPos::new(0, 1)),
+            "shot from west"
+        );
+        assert!(
+            g.cover_against(target, GridPos::new(0, 2)),
+            "diagonal from north-west crosses the north side"
+        );
+        assert!(
+            !g.cover_against(GridPos::new(0, 0), GridPos::new(2, 2)),
+            "plain floor gives no cover"
+        );
     }
 }
