@@ -25,7 +25,7 @@ pub fn toggle_pause(
     }
 }
 
-use crate::unit::{Dead, Faction, Order};
+use crate::unit::{Dead, Faction};
 
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MissionOutcome {
@@ -36,10 +36,9 @@ pub enum MissionOutcome {
 /// Ends the mission when a faction that had units has none left alive.
 pub fn check_mission_end(
     mut commands: Commands,
-    units: Query<(Entity, &Faction, Option<&Dead>)>,
+    units: Query<(&Faction, Option<&Dead>)>,
     outcome: Option<Res<MissionOutcome>>,
     mut next: ResMut<NextState<AppState>>,
-    mut attackers: Query<&mut Order, Without<Dead>>,
 ) {
     if outcome.is_some() {
         return;
@@ -47,7 +46,7 @@ pub fn check_mission_end(
     let wiped_out = |faction: Faction| {
         let mut any = false;
         let mut alive = false;
-        for (_, f, dead) in &units {
+        for (f, dead) in &units {
             if *f == faction {
                 any = true;
                 alive |= dead.is_none();
@@ -62,21 +61,6 @@ pub fn check_mission_end(
     } else {
         return;
     };
-
-    // Clear orders of units attacking dead units (necessary when mission ends same tick)
-    let dead_units: Vec<Entity> = units
-        .iter()
-        .filter_map(|(entity, _, dead)| if dead.is_some() { Some(entity) } else { None })
-        .collect();
-    for mut order in &mut attackers {
-        if let Order::Attack(target) = *order {
-            #[allow(clippy::collapsible_if)]
-            if dead_units.contains(&target) {
-                *order = Order::None;
-            }
-        }
-    }
-
     commands.insert_resource(result);
     next.set(AppState::Paused);
 }

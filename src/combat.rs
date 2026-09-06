@@ -78,14 +78,27 @@ pub fn resolve_attacks(
     }
 }
 
+/// Marks units at zero health `Dead`, clears their orders and paths, and cancels any
+/// attack order aimed at a unit that died this frame.
 pub fn apply_death(
     mut commands: Commands,
     mut units: Query<(Entity, &Health, &mut Order), Without<Dead>>,
 ) {
-    for (entity, health, mut order) in &mut units {
-        if health.is_dead() {
+    let dying: Vec<Entity> = units
+        .iter()
+        .filter(|(_, health, _)| health.is_dead())
+        .map(|(entity, _, _)| entity)
+        .collect();
+    if dying.is_empty() {
+        return;
+    }
+    for (entity, _, mut order) in &mut units {
+        if dying.contains(&entity) {
             *order = Order::None;
             commands.entity(entity).insert(Dead).remove::<Path>();
+        } else if matches!(*order, Order::Attack(target) if dying.contains(&target)) {
+            *order = Order::None;
+            commands.entity(entity).remove::<Path>();
         }
     }
 }
