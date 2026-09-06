@@ -1,4 +1,5 @@
 mod grid;
+mod rules;
 
 use bevy::prelude::*;
 
