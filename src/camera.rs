@@ -6,8 +6,16 @@ use bevy::prelude::*;
 const PAN_SPEED: f32 = 600.0;
 
 pub fn spawn_camera(mut commands: Commands) {
-    // Centre of the 20x15 map (1280 x 960 px).
-    commands.spawn((Camera2d, Transform::from_xyz(640.0, 480.0, 0.0)));
+    // Centre of the 20x15 map (1280 x 960 px). Scale 1.4 fits the full map height
+    // into a 720 px tall window with a small margin; the wheel still zooms from there.
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scale: 1.4,
+            ..OrthographicProjection::default_2d()
+        }),
+        Transform::from_xyz(640.0, 480.0, 0.0),
+    ));
 }
 
 pub fn pan_camera(
