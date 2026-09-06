@@ -184,6 +184,18 @@ impl Battle {
         }
     }
 
+    /// Builds the battle from a Tiled map: tile properties give the grid, the `spawns`
+    /// object layer gives the units, in the order Tiled lists them.
+    pub fn from_tiled(map: &::tiled::Map, seed: u64) -> Battle {
+        let grid = crate::map::grid_from_tiled(map);
+        let units = crate::map::spawns_from_tiled(map)
+            .into_iter()
+            .enumerate()
+            .map(|(i, (side, pos))| Unit::new(UnitId(i as u32), side, pos))
+            .collect();
+        Battle::new(grid, units, seed)
+    }
+
     pub fn grid(&self) -> &Grid {
         &self.grid
     }
@@ -1072,5 +1084,33 @@ mod tests {
         assert!(far.visible_enemies(UnitId(0)).is_empty());
         far.units[1].alive = false;
         assert_eq!(far.hit_chance(UnitId(0), UnitId(1)), None, "dead");
+    }
+
+    #[test]
+    fn from_tiled_loads_mission01() {
+        let map = ::tiled::Loader::new()
+            .load_tmx_map("assets/maps/mission01.tmx")
+            .expect("mission01.tmx loads");
+        let b = Battle::from_tiled(&map, 9);
+        assert_eq!((b.grid().width(), b.grid().height()), (20, 15));
+        assert_eq!(b.living(Side::Player).count(), 4);
+        assert_eq!(b.living(Side::Enemy).count(), 3);
+        assert!(
+            b.units()
+                .iter()
+                .enumerate()
+                .all(|(i, u)| u.id == UnitId(i as u32))
+        );
+        assert!(
+            b.units()
+                .iter()
+                .any(|u| u.side == Side::Player && u.pos == GridPos::new(3, 2))
+        );
+        assert!(
+            b.units()
+                .iter()
+                .any(|u| u.side == Side::Enemy && u.pos == GridPos::new(16, 12))
+        );
+        assert!(b.units().iter().all(|u| u.ap == u.ap_max && u.alive));
     }
 }

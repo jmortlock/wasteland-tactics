@@ -5,11 +5,11 @@ use ::tiled::PropertyValue;
 use bevy::prelude::*;
 use bevy_ecs_tiled::prelude::*;
 
+use crate::battle::Side;
 use crate::grid::{CoverSides, Grid, GridPos};
-use crate::unit::Faction;
 
 use crate::assets::GameAssets;
-use crate::unit::unit_bundle;
+use crate::unit::{Faction, unit_bundle};
 
 /// Builds the walkability/sight/cover grid from every tile layer's tile properties.
 /// Later layers override earlier ones for the same cell (walls layer sits above ground).
@@ -47,7 +47,7 @@ pub fn grid_from_tiled(map: &::tiled::Map) -> Grid {
 }
 
 /// Reads point objects with a `faction` property from every object layer.
-pub fn spawns_from_tiled(map: &::tiled::Map) -> Vec<(Faction, GridPos)> {
+pub fn spawns_from_tiled(map: &::tiled::Map) -> Vec<(Side, GridPos)> {
     let h = map.height as i32;
     let (tw, th) = (map.tile_width as f32, map.tile_height as f32);
     let mut out = Vec::new();
@@ -56,16 +56,16 @@ pub fn spawns_from_tiled(map: &::tiled::Map) -> Vec<(Faction, GridPos)> {
             continue;
         };
         for obj in objects.objects() {
-            let faction = match obj.properties.get("faction") {
-                Some(PropertyValue::StringValue(s)) if s == "player" => Faction::Player,
-                Some(PropertyValue::StringValue(s)) if s == "enemy" => Faction::Enemy,
+            let side = match obj.properties.get("faction") {
+                Some(PropertyValue::StringValue(s)) if s == "player" => Side::Player,
+                Some(PropertyValue::StringValue(s)) if s == "enemy" => Side::Enemy,
                 _ => continue,
             };
             let pos = GridPos::new(
                 (obj.x / tw).floor() as i32,
                 h - 1 - (obj.y / th).floor() as i32,
             );
-            out.push((faction, pos));
+            out.push((side, pos));
         }
     }
     out
@@ -102,7 +102,11 @@ pub fn on_map_created(
             spawns.len()
         );
         commands.insert_resource(grid);
-        for (faction, pos) in spawns {
+        for (side, pos) in spawns {
+            let faction = match side {
+                Side::Player => Faction::Player,
+                Side::Enemy => Faction::Enemy,
+            };
             commands.spawn(unit_bundle(faction, pos));
         }
     }
@@ -157,12 +161,12 @@ mod tests {
     #[test]
     fn spawns_come_from_the_object_layer() {
         let spawns = spawns_from_tiled(&load());
-        let players = spawns.iter().filter(|(f, _)| *f == Faction::Player).count();
-        let enemies = spawns.iter().filter(|(f, _)| *f == Faction::Enemy).count();
+        let players = spawns.iter().filter(|(s, _)| *s == Side::Player).count();
+        let enemies = spawns.iter().filter(|(s, _)| *s == Side::Enemy).count();
         assert_eq!((players, enemies), (4, 3));
         // 'P' on ASCII row 12, column 3 -> (3, 2)
-        assert!(spawns.contains(&(Faction::Player, GridPos::new(3, 2))));
+        assert!(spawns.contains(&(Side::Player, GridPos::new(3, 2))));
         // 'E' on row 2, column 16 -> (16, 12)
-        assert!(spawns.contains(&(Faction::Enemy, GridPos::new(16, 12))));
+        assert!(spawns.contains(&(Side::Enemy, GridPos::new(16, 12))));
     }
 }
