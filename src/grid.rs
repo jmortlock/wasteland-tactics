@@ -239,6 +239,47 @@ impl Grid {
             || (dx < 0 && cell.cover.e)
             || (dx > 0 && cell.cover.w)
     }
+
+    /// Walkable king-move neighbours with costs (10 orthogonal, 14 diagonal).
+    /// Diagonals are only allowed when both adjacent orthogonal cells are walkable.
+    pub fn neighbours(&self, p: GridPos) -> Vec<(GridPos, u32)> {
+        let mut out = Vec::with_capacity(8);
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let n = GridPos::new(p.x + dx, p.y + dy);
+                if !self.is_walkable(n) {
+                    continue;
+                }
+                let diagonal = dx != 0 && dy != 0;
+                if diagonal
+                    && !(self.is_walkable(GridPos::new(p.x + dx, p.y))
+                        && self.is_walkable(GridPos::new(p.x, p.y + dy)))
+                {
+                    continue;
+                }
+                out.push((n, if diagonal { 14 } else { 10 }));
+            }
+        }
+        out
+    }
+
+    /// A* path from `from` to `to`, excluding `from`, ending at `to`.
+    pub fn find_path(&self, from: GridPos, to: GridPos) -> Option<Vec<GridPos>> {
+        if !self.is_walkable(to) {
+            return None;
+        }
+        let (mut path, _cost) = pathfinding::directed::astar::astar(
+            &from,
+            |p| self.neighbours(*p),
+            |p| p.distance(to) as u32 * 10,
+            |p| *p == to,
+        )?;
+        path.remove(0);
+        Some(path)
+    }
 }
 
 #[cfg(test)]
@@ -396,6 +437,48 @@ mod tests {
         assert!(
             !g.cover_against(GridPos::new(0, 0), GridPos::new(2, 2)),
             "plain floor gives no cover"
+        );
+    }
+
+    #[test]
+    fn path_straight_corridor() {
+        let g = Grid::from_ascii("#####\n#...#\n#####");
+        let p = g.find_path(GridPos::new(1, 1), GridPos::new(3, 1)).unwrap();
+        assert_eq!(p, vec![GridPos::new(2, 1), GridPos::new(3, 1)]);
+        assert_eq!(
+            g.find_path(GridPos::new(1, 1), GridPos::new(1, 1)),
+            Some(vec![])
+        );
+    }
+
+    #[test]
+    fn path_goes_around_walls() {
+        let g = Grid::from_ascii("...\n.#.\n...");
+        let p = g.find_path(GridPos::new(0, 0), GridPos::new(2, 2)).unwrap();
+        assert_eq!(p.last(), Some(&GridPos::new(2, 2)));
+        assert!(p.iter().all(|c| g.is_walkable(*c)));
+        assert_eq!(
+            p.len(),
+            4,
+            "no corner cutting past the centre wall: e.g. (1,0) (2,0) (2,1) (2,2)"
+        );
+    }
+
+    #[test]
+    fn no_corner_cutting() {
+        // Moving (0,0)->(1,1) diagonally would squeeze between two walls; must go the long way or fail.
+        let g = Grid::from_ascii("#.\n.#");
+        assert_eq!(g.find_path(GridPos::new(0, 0), GridPos::new(1, 1)), None);
+    }
+
+    #[test]
+    fn unreachable_or_unwalkable_goal_is_none() {
+        let g = Grid::from_ascii(".#.\n.#.\n.#.");
+        assert_eq!(g.find_path(GridPos::new(0, 0), GridPos::new(2, 0)), None);
+        assert_eq!(
+            g.find_path(GridPos::new(0, 0), GridPos::new(1, 0)),
+            None,
+            "goal is a wall"
         );
     }
 }
