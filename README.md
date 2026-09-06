@@ -1,6 +1,6 @@
 # Wasteland Tactics
 
-A hobby top-down, real-time-with-pause tactical squad shooter in Rust + Bevy,
+A hobby top-down, squad turn-based tactical shooter in Rust + Bevy,
 in the spirit of Fallout Tactics.
 
 ## Run
