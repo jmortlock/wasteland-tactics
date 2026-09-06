@@ -33,6 +33,7 @@ impl Plugin for SimulationPlugin {
                 movement::follow_paths,
                 combat::resolve_attacks,
                 combat::apply_death,
+                state::check_mission_end,
             )
                 .chain()
                 .run_if(in_state(AppState::Playing)),
