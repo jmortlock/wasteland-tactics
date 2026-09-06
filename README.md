@@ -18,6 +18,15 @@ right click on an enemy attacks, Space pauses, WASD pans, mouse wheel zooms.
     cargo test
     cargo clippy --all-targets -- -D warnings
     cargo fmt
+    cargo run --features dynamic,inspector   # live entity inspector (egui)
+    WT_SCREENSHOT=out.png cargo run --features dynamic   # screenshot after 2 s, then exit
+    cargo run --features dynamic -- --seed 42            # reproducible battle
 
 Maps are edited with [Tiled](https://www.mapeditor.org/) (`sudo apt install tiled`).
 Design spec: `docs/superpowers/specs/`. Art and sound credits: `CREDITS.md`.
+
+Maps: `tools/gen_map.py` regenerates `assets/maps/mission01.tmx` from ASCII; open the result in Tiled to hand-edit.
+
+## Status
+
+Slice 1 (one squad, one map) — see `docs/superpowers/specs/` and the GitHub milestone.

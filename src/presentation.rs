@@ -10,6 +10,7 @@ pub struct PresentationPlugin;
 
 impl Plugin for PresentationPlugin {
     fn build(&self, app: &mut App) {
+        debug::add_inspector(app);
         app.add_audio_channel::<audio::Sfx>();
         app.add_systems(
             OnEnter(AppState::Loading),

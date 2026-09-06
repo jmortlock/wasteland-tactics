@@ -1,6 +1,3 @@
-// Modules are wired up task by task; remove this once every public item has a consumer (planned for Task 14).
-#![allow(dead_code)]
-
 mod ai;
 mod assets;
 mod audio;

@@ -86,6 +86,8 @@ impl Cell {
         blocks_sight: false,
         cover: Self::NO_COVER,
     };
+    /// Only built via `Grid::from_ascii`, which is test-only.
+    #[cfg(test)]
     pub const WALL: Cell = Cell {
         walkable: false,
         blocks_sight: true,
@@ -93,6 +95,8 @@ impl Cell {
     };
 
     /// A walkable, see-through tile (sandbags, low wall) that shelters the given sides.
+    /// Only built via `Grid::from_ascii`, which is test-only.
+    #[cfg(test)]
     pub fn cover(sides: CoverSides) -> Cell {
         Cell {
             walkable: true,
@@ -145,6 +149,8 @@ impl Grid {
 
     /// Builds a grid from ASCII art. The FIRST line is the TOP row (highest y).
     /// `#` wall, `.` floor, `^` `>` `v` `<` cover tile sheltering its north/east/south/west side.
+    /// Test-only: production maps load from Tiled via `map.rs`.
+    #[cfg(test)]
     pub fn from_ascii(art: &str) -> Self {
         let rows: Vec<&str> = art
             .lines()
