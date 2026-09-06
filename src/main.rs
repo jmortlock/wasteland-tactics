@@ -4,6 +4,7 @@
 mod ai;
 mod combat;
 mod grid;
+mod map;
 mod movement;
 mod rules;
 mod sim;

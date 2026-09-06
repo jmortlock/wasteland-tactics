@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="20" height="15" tilewidth="64" tileheight="64" infinite="0" nextlayerid="4" nextobjectid="8">
+ <tileset firstgid="1" source="wasteland.tsx"/>
+ <layer id="1" name="ground" width="20" height="15">
+  <data encoding="csv">
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+</data>
+ </layer>
+ <layer id="2" name="walls" width="20" height="15">
+  <data encoding="csv">
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,2,0,0,0,0,3,0,0,0,0,0,0,2,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,2,2,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,4,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,0,0,0,3,0,0,0,2,2,0,0,0,0,2,2,2,0,0,0,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2
+</data>
+ </layer>
+ <objectgroup id="3" name="spawns">
+  <object id="1" name="enemy1" x="1056" y="160">
+   <point/>
+   <properties>
+    <property name="faction" value="enemy"/>
+   </properties>
+  </object>
+  <object id="2" name="enemy2" x="1056" y="224">
+   <point/>
+   <properties>
+    <property name="faction" value="enemy"/>
+   </properties>
+  </object>
+  <object id="3" name="enemy3" x="992" y="288">
+   <point/>
+   <properties>
+    <property name="faction" value="enemy"/>
+   </properties>
+  </object>
+  <object id="4" name="player4" x="224" y="800">
+   <point/>
+   <properties>
+    <property name="faction" value="player"/>
+   </properties>
+  </object>
+  <object id="5" name="player5" x="352" y="800">
+   <point/>
+   <properties>
+    <property name="faction" value="player"/>
+   </properties>
+  </object>
+  <object id="6" name="player6" x="224" y="864">
+   <point/>
+   <properties>
+    <property name="faction" value="player"/>
+   </properties>
+  </object>
+  <object id="7" name="player7" x="352" y="864">
+   <point/>
+   <properties>
+    <property name="faction" value="player"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>
