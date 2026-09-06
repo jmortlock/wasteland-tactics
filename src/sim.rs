@@ -31,7 +31,8 @@ impl Plugin for SimulationPlugin {
         );
         app.add_systems(
             Update,
-            state::toggle_pause.run_if(in_state(AppState::Playing).or(in_state(AppState::Paused))),
+            state::toggle_pause
+                .run_if(in_state(AppState::Playing).or_else(in_state(AppState::Paused))),
         );
     }
 }

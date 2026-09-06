@@ -8,6 +8,7 @@ use crate::grid::{Grid, GridPos};
 use crate::unit::{Dead, Order, Path, Speed};
 
 /// Gives every unit with a fresh `MoveTo` order a `Path`, or cancels the order if there is none.
+#[allow(clippy::type_complexity)]
 pub fn plan_paths(
     mut commands: Commands,
     grid: Res<Grid>,
@@ -28,6 +29,7 @@ pub fn plan_paths(
 
 /// Moves each unit toward the next cell of its `Path`. Arriving updates `GridPos`.
 /// A cell occupied by another living unit aborts the path (and a `MoveTo` order).
+#[allow(clippy::type_complexity)]
 pub fn follow_paths(
     mut commands: Commands,
     time: Res<Time>,
