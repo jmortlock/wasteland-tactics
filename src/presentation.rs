@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use crate::state::AppState;
-use crate::{assets, camera, debug, map, render};
+use crate::{assets, camera, debug, map, orders, render};
 
 pub struct PresentationPlugin;
 
@@ -24,10 +24,18 @@ impl Plugin for PresentationPlugin {
             (
                 render::attach_sprites,
                 render::tint_dead,
+                render::draw_overlays,
+                render::spawn_tracers,
+                render::draw_tracers,
                 camera::pan_camera,
                 camera::zoom_camera,
                 debug::screenshot_and_exit,
             ),
+        )
+        .add_systems(
+            Update,
+            orders::player_input
+                .run_if(in_state(AppState::Playing).or_else(in_state(AppState::Paused))),
         );
     }
 }

@@ -9,6 +9,7 @@ mod debug;
 mod grid;
 mod map;
 mod movement;
+mod orders;
 mod presentation;
 mod render;
 mod rules;
