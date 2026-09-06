@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 
+use crate::ai;
 use crate::combat;
 use crate::movement;
 use crate::rules::GameRng;
@@ -27,6 +28,7 @@ impl Plugin for SimulationPlugin {
         app.add_systems(
             Update,
             (
+                ai::enemy_think,
                 movement::plan_paths,
                 movement::follow_paths,
                 combat::resolve_attacks,
