@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioApp;
 
 use crate::animator::{self, Animation, ShotFired};
-use crate::orders::Selected;
+use crate::orders::{Hover, Selected};
 use crate::phase::{self, AppState};
 use crate::{assets, audio, camera, debug, map, orders, render, ui};
 
@@ -17,6 +17,7 @@ impl Plugin for PresentationPlugin {
         app.add_message::<ShotFired>();
         app.init_resource::<Animation>();
         app.init_resource::<Selected>();
+        app.init_resource::<Hover>();
         app.add_systems(
             OnEnter(AppState::Loading),
             (
@@ -24,6 +25,7 @@ impl Plugin for PresentationPlugin {
                 map::spawn_map,
                 camera::spawn_camera,
                 ui::spawn_overlay,
+                render::spawn_hover_label,
             )
                 .chain(),
         )
@@ -35,7 +37,9 @@ impl Plugin for PresentationPlugin {
         )
         .add_systems(
             Update,
-            orders::player_input.run_if(in_state(AppState::PlayerInput)),
+            (orders::track_hover, orders::player_input)
+                .chain()
+                .run_if(in_state(AppState::PlayerInput)),
         )
         .add_systems(
             Update,
@@ -51,6 +55,7 @@ impl Plugin for PresentationPlugin {
             Update,
             (
                 render::draw_overlays.run_if(resource_exists::<crate::battle::Battle>),
+                render::draw_previews.run_if(in_state(AppState::PlayerInput)),
                 render::spawn_tracers,
                 render::draw_tracers,
             )

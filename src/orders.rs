@@ -15,6 +15,30 @@ const PICK_RADIUS: f32 = UNIT_SPRITE_SIZE * 0.6;
 #[derive(Resource, Default, Debug)]
 pub struct Selected(pub Option<UnitId>);
 
+/// What the cursor is over this frame, for previews.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct Hover {
+    pub cell: Option<GridPos>,
+    pub unit: Option<UnitId>,
+}
+
+pub fn track_hover(
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
+    sprites: Query<(&UnitSprite, &Transform)>,
+    battle: Res<Battle>,
+    mut hover: ResMut<Hover>,
+) {
+    let (cam, cam_tf) = *camera;
+    let Some(world) = cursor_world(&window, cam, cam_tf) else {
+        *hover = Hover::default();
+        return;
+    };
+    let cell = GridPos::from_world(world);
+    hover.cell = battle.grid().in_bounds(cell).then_some(cell);
+    hover.unit = unit_under(&battle, &sprites, world);
+}
+
 fn cursor_world(window: &Window, camera: &Camera, camera_tf: &GlobalTransform) -> Option<Vec2> {
     let cursor = window.cursor_position()?;
     camera.viewport_to_world_2d(camera_tf, cursor).ok()
