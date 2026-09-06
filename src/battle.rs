@@ -461,6 +461,46 @@ impl Battle {
         (steps * tuning::MOVE_COST <= u.ap).then_some(path)
     }
 
+    /// Hit probability for a direct shot, or `None` when the shot is impossible
+    /// (dead, same side, out of range, no line of sight).
+    pub fn hit_chance(&self, shooter: UnitId, target: UnitId) -> Option<f32> {
+        let s = self.unit(shooter).filter(|u| u.alive)?;
+        let t = self.unit(target).filter(|u| u.alive)?;
+        if s.side == t.side {
+            return None;
+        }
+        let distance = s.pos.distance(t.pos);
+        if distance > s.weapon.range || !self.grid.has_line_of_sight(s.pos, t.pos) {
+            return None;
+        }
+        Some(rules::hit_chance(
+            distance,
+            s.weapon.range,
+            self.target_in_cover(shooter, target),
+        ))
+    }
+
+    pub fn target_in_cover(&self, shooter: UnitId, target: UnitId) -> bool {
+        match (self.unit(shooter), self.unit(target)) {
+            (Some(s), Some(t)) => self.grid.cover_against(t.pos, s.pos),
+            _ => false,
+        }
+    }
+
+    /// Living units of the other side this unit could shoot right now, nearest first.
+    pub fn visible_enemies(&self, unit: UnitId) -> Vec<UnitId> {
+        let Some(u) = self.unit(unit).filter(|u| u.alive) else {
+            return Vec::new();
+        };
+        let mut out: Vec<(i32, UnitId)> = self
+            .living(u.side.other())
+            .filter(|t| self.hit_chance(unit, t.id).is_some())
+            .map(|t| (u.pos.distance(t.pos), t.id))
+            .collect();
+        out.sort();
+        out.into_iter().map(|(_, id)| id).collect()
+    }
+
     fn switch_turn(&mut self, events: &mut Vec<BattleEvent>) {
         events.push(BattleEvent::TurnEnded(self.turn));
         self.turn = self.turn.other();
@@ -1009,5 +1049,28 @@ mod tests {
         }
         assert_eq!(play(42), play(42));
         assert_ne!(play(42), play(43), "different seeds diverge (hit rolls)");
+    }
+
+    #[test]
+    fn targeting_queries() {
+        let b = Battle::from_ascii("P.#E\n....\n..vE", 1);
+        // Unit ids: 0 P(0,2), 1 E(3,2), 2 E(3,0). The 'v' at (2,0) is cover but no one stands on it.
+        assert_eq!(
+            b.hit_chance(UnitId(0), UnitId(1)),
+            None,
+            "wall at (2,2) blocks"
+        );
+        let chance = b
+            .hit_chance(UnitId(0), UnitId(2))
+            .expect("visible diagonal");
+        assert!((chance - rules::hit_chance(3, 8, false)).abs() < 1e-6);
+        assert!(!b.target_in_cover(UnitId(0), UnitId(2)));
+        assert_eq!(b.visible_enemies(UnitId(0)), vec![UnitId(2)]);
+        assert_eq!(b.hit_chance(UnitId(1), UnitId(2)), None, "same side");
+        let mut far = Battle::from_ascii("P.........E", 1);
+        assert_eq!(far.hit_chance(UnitId(0), UnitId(1)), None, "out of range");
+        assert!(far.visible_enemies(UnitId(0)).is_empty());
+        far.units[1].alive = false;
+        assert_eq!(far.hit_chance(UnitId(0), UnitId(1)), None, "dead");
     }
 }

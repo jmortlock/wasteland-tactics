@@ -216,8 +216,13 @@ impl Grid {
         self.get(p).is_some_and(|c| c.walkable)
     }
 
-    /// True when no sight-blocking cell lies strictly between `a` and `b`.
+    /// True when no sight-blocking cell lies strictly between `a` and `b`, in either
+    /// Bresenham direction (the raster line is not symmetric; visibility must be).
     pub fn has_line_of_sight(&self, a: GridPos, b: GridPos) -> bool {
+        self.clear_between(a, b) || self.clear_between(b, a)
+    }
+
+    fn clear_between(&self, a: GridPos, b: GridPos) -> bool {
         let cells = line(a, b);
         cells[1..cells.len().saturating_sub(1).max(1)]
             .iter()
@@ -485,6 +490,31 @@ mod tests {
             g.find_path(GridPos::new(0, 0), GridPos::new(1, 0)),
             None,
             "goal is a wall"
+        );
+    }
+
+    #[test]
+    fn line_of_sight_is_symmetric() {
+        // A single diagonal wall: Bresenham from one end passes through it, from the other it does not.
+        let g = Grid::from_ascii("...\n.#.\n...");
+        for (a, b) in [
+            (GridPos::new(0, 0), GridPos::new(2, 1)),
+            (GridPos::new(0, 2), GridPos::new(2, 1)),
+            (GridPos::new(0, 0), GridPos::new(2, 2)),
+        ] {
+            assert_eq!(
+                g.has_line_of_sight(a, b),
+                g.has_line_of_sight(b, a),
+                "{a:?} <-> {b:?}"
+            );
+        }
+        assert!(
+            g.has_line_of_sight(GridPos::new(0, 0), GridPos::new(2, 1)),
+            "clear in at least one direction"
+        );
+        assert!(
+            !g.has_line_of_sight(GridPos::new(0, 1), GridPos::new(2, 1)),
+            "straight through the wall stays blocked"
         );
     }
 }
