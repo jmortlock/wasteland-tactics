@@ -1,6 +1,7 @@
 mod ai;
 mod assets;
 mod audio;
+mod battle;
 mod camera;
 mod combat;
 mod debug;
