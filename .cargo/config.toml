@@ -1,0 +1,5 @@
+# mold + clang: several-second incremental links for Bevy.
+# Both are installed on the dev box and in CI (see .github/workflows/ci.yml).
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]

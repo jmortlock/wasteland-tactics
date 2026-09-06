@@ -1,0 +1,32 @@
+[package]
+name = "wasteland-tactics"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+description = "Top-down real-time-with-pause tactical squad shooter"
+license = "MIT"
+
+[dependencies]
+bevy = "=0.19.1"
+bevy_ecs_tilemap = "=0.19.0"
+bevy_ecs_tiled = "=0.13.4"
+bevy_kira_audio = "=0.26.0"
+bevy-inspector-egui = { version = "=0.37.0", optional = true }
+pathfinding = "4.15"
+rand = "0.9"
+rand_chacha = "0.9"
+tiled = "0.16"
+
+[features]
+default = []
+# Fast incremental builds while developing. Never use in CI or release.
+dynamic = ["bevy/dynamic_linking"]
+# Live entity inspector window (egui).
+inspector = ["dep:bevy-inspector-egui"]
+
+# Our code compiles fast, dependencies run fast.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
