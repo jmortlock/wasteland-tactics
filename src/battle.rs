@@ -401,8 +401,26 @@ impl Battle {
         Ok(())
     }
 
-    /// Reaction fire after a step. Filled in by Task 4.
-    fn react_to(&mut self, _mover: UnitId, _events: &mut Vec<BattleEvent>) {}
+    /// After `mover` steps: every living unit of the other side, in ascending id order,
+    /// with enough AP, in range and with line of sight to the mover's new cell fires once.
+    /// Stops as soon as the mover dies.
+    fn react_to(&mut self, mover: UnitId, events: &mut Vec<BattleEvent>) {
+        let mover_side = self.units[mover.0 as usize].side;
+        let reactors: Vec<UnitId> = self
+            .units
+            .iter()
+            .filter(|u| u.alive && u.side != mover_side)
+            .map(|u| u.id)
+            .collect();
+        for reactor in reactors {
+            if !self.units[mover.0 as usize].alive {
+                break;
+            }
+            if self.validate_shot(reactor, mover, true).is_ok() {
+                self.fire(reactor, mover, true, events);
+            }
+        }
+    }
 
     /// King-move neighbours that are walkable, corner-safe and unoccupied, unit cost.
     fn step_successors(&self, p: GridPos) -> Vec<(GridPos, i32)> {
@@ -836,5 +854,160 @@ mod tests {
             None,
             "costs 2, has 1"
         );
+    }
+
+    #[test]
+    fn reaction_fire_triggers_on_the_step_that_enters_sight() {
+        // Wall column at x=2 on rows 1-2; the enemy at (4,1) sits level with it, so (0,2) and (0,1)
+        // are hidden and (0,0) is the first cell it can see. Player walks down the left column, then east.
+        let mut b = Battle::from_ascii("P.#..\n..#.E\n.....", 7);
+        b.apply(Action::EndTurn).unwrap(); // enemy has full AP (5) = one reaction shot
+        b.end_enemy_turn(); // back to player, turn 2, enemy AP still 5
+        assert_eq!(b.unit(UnitId(1)).unwrap().ap, tuning::ENEMY_AP);
+        let events = mv(&mut b, 0, &[(0, 1), (0, 0), (1, 0)]).unwrap();
+        let steps: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, BattleEvent::Stepped { .. }))
+            .collect();
+        assert_eq!(steps.len(), 3);
+        let reactions: Vec<_> = events
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| matches!(e, BattleEvent::ReactionShot { .. }))
+            .collect();
+        assert_eq!(
+            reactions.len(),
+            1,
+            "one shot: 5 AP - 3 = 2, not enough for a second"
+        );
+        // The reaction comes right after the step into (0,0), which is the first cell with LOS to (4,0).
+        let (idx, _) = reactions[0];
+        assert_eq!(
+            events[idx - 1],
+            BattleEvent::Stepped {
+                unit: UnitId(0),
+                from: GridPos::new(0, 1),
+                to: GridPos::new(0, 0)
+            }
+        );
+        assert_eq!(
+            b.unit(UnitId(1)).unwrap().ap,
+            tuning::ENEMY_AP - tuning::RIFLE_AP_COST
+        );
+    }
+
+    #[test]
+    fn no_reaction_without_ap_or_line_of_sight() {
+        let mut b = Battle::from_ascii("P...E", 7);
+        b.units[1].ap = 2;
+        let events = mv(&mut b, 0, &[(1, 0)]).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, BattleEvent::ReactionShot { .. }))
+        );
+        let mut walled = Battle::from_ascii("P.#.E", 7);
+        let events = mv(&mut walled, 0, &[(1, 0)]).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, BattleEvent::ReactionShot { .. }))
+        );
+    }
+
+    #[test]
+    fn a_mover_killed_by_reaction_fire_stops_where_it_fell() {
+        let mut b = Battle::from_ascii("P.........E", 2);
+        b.units[0].health = 1;
+        b.units[0].ap = 20;
+        b.units[1].ap = 30; // a reaction on every in-range step (from (3,0) on); the first hit kills
+        let path: Vec<(i32, i32)> = (1..=9).map(|x| (x, 0)).collect();
+        let events = mv(&mut b, 0, &path).unwrap();
+        let died_at = events
+            .iter()
+            .position(|e| *e == BattleEvent::Died(UnitId(0)))
+            .expect("dies");
+        let steps_after = events[died_at..]
+            .iter()
+            .filter(|e| matches!(e, BattleEvent::Stepped { .. }))
+            .count();
+        assert_eq!(steps_after, 0, "no more steps after death");
+        assert_eq!(
+            events.last(),
+            Some(&BattleEvent::BattleOver(Outcome::Defeat))
+        );
+        assert!(!b.unit(UnitId(0)).unwrap().alive);
+        assert!(
+            b.unit(UnitId(0)).unwrap().pos.x < 9,
+            "fell before the end of the path"
+        );
+    }
+
+    #[test]
+    fn cover_halves_reaction_and_direct_hits_over_a_seeded_volley() {
+        // Shooter at (2,0) fires north at a target on (2,2). 'v' shelters the south side.
+        fn damage_after(seed: u64, target_glyph: char) -> i32 {
+            let art = format!("..{target_glyph}..\n.....\n..P..");
+            let mut b = Battle::from_ascii(&art, seed);
+            // Put the enemy on the cover cell by hand (from_ascii can't stack a unit on a glyph).
+            b.units
+                .push(Unit::new(UnitId(1), Side::Enemy, GridPos::new(2, 2)));
+            b.units[1].health = 1_000_000;
+            let mut total = 0;
+            for _ in 0..400 {
+                b.units[0].ap = 3;
+                let ev = b
+                    .apply(Action::Shoot {
+                        unit: UnitId(0),
+                        target: UnitId(1),
+                    })
+                    .unwrap();
+                if let BattleEvent::Shot { damage, .. } = ev[0] {
+                    total += damage;
+                }
+            }
+            total
+        }
+        let open = damage_after(11, '.');
+        let covered = damage_after(11, 'v');
+        let wrong_side = damage_after(11, '^');
+        assert!(covered < open * 7 / 10, "cover {covered} vs open {open}");
+        assert!(
+            (wrong_side - open).abs() < open / 5,
+            "wrong side {wrong_side} vs open {open}"
+        );
+    }
+
+    #[test]
+    fn same_seed_and_actions_replay_identically() {
+        fn play(seed: u64) -> Vec<BattleEvent> {
+            let mut b = Battle::from_ascii("P.....\n......\nE.....", seed);
+            let mut log = Vec::new();
+            log.extend(
+                b.apply(Action::Move {
+                    unit: UnitId(0),
+                    path: vec![GridPos::new(1, 2), GridPos::new(2, 2)],
+                })
+                .unwrap(),
+            );
+            log.extend(
+                b.apply(Action::Shoot {
+                    unit: UnitId(0),
+                    target: UnitId(1),
+                })
+                .unwrap(),
+            );
+            log.extend(b.apply(Action::EndTurn).unwrap());
+            log.extend(
+                b.apply(Action::Shoot {
+                    unit: UnitId(1),
+                    target: UnitId(0),
+                })
+                .unwrap_or_default(),
+            );
+            log
+        }
+        assert_eq!(play(42), play(42));
+        assert_ne!(play(42), play(43), "different seeds diverge (hit rolls)");
     }
 }
