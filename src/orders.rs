@@ -26,7 +26,7 @@ pub fn player_input(
     units: Query<(Entity, &Faction, &Transform, Option<&Selected>), Without<Dead>>,
     mut orders: Query<&mut Order>,
 ) {
-    // Number keys select the nth living soldier (in spawn order).
+    // Number keys select the nth living soldier in spawn order (entity index).
     let hotkeys = [
         KeyCode::Digit1,
         KeyCode::Digit2,
@@ -35,11 +35,12 @@ pub fn player_input(
     ];
     for (i, key) in hotkeys.iter().enumerate() {
         if keys.just_pressed(*key) {
-            let soldiers: Vec<Entity> = units
+            let mut soldiers: Vec<Entity> = units
                 .iter()
                 .filter(|(_, f, _, _)| **f == Faction::Player)
                 .map(|(e, ..)| e)
                 .collect();
+            soldiers.sort_by_key(|e| e.index());
             if let Some(&chosen) = soldiers.get(i) {
                 for (e, _, _, selected) in &units {
                     if selected.is_some() {

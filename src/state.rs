@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use crate::unit::{Dead, Faction};
+
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AppState {
     #[default]
@@ -14,7 +16,11 @@ pub fn toggle_pause(
     keys: Res<ButtonInput<KeyCode>>,
     state: Res<State<AppState>>,
     mut next: ResMut<NextState<AppState>>,
+    outcome: Option<Res<MissionOutcome>>,
 ) {
+    if outcome.is_some() {
+        return;
+    }
     if !keys.just_pressed(KeyCode::Space) {
         return;
     }
@@ -24,8 +30,6 @@ pub fn toggle_pause(
         AppState::Loading => {}
     }
 }
-
-use crate::unit::{Dead, Faction};
 
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MissionOutcome {
@@ -70,7 +74,7 @@ mod tests {
     use super::*;
     use crate::grid::{Grid, GridPos};
     use crate::test_support::*;
-    use crate::unit::{Faction, Health};
+    use crate::unit::{Faction, Health, Order};
 
     fn kill(app: &mut App, e: Entity) {
         app.world_mut()
@@ -119,5 +123,67 @@ mod tests {
         let _p = spawn_unit(&mut app, Faction::Player, GridPos::new(0, 0));
         tick(&mut app, 0.1);
         assert!(app.world().get_resource::<MissionOutcome>().is_none());
+    }
+
+    #[test]
+    fn pause_freezes_the_sim_but_keeps_orders_until_resume() {
+        let mut app = headless_app(Grid::new(10, 1), 1);
+        let u = spawn_unit(&mut app, Faction::Player, GridPos::new(0, 0));
+        app.world_mut()
+            .resource_mut::<NextState<AppState>>()
+            .set(AppState::Paused);
+        tick(&mut app, 0.1); // transition applies
+        assert_eq!(
+            *app.world().resource::<State<AppState>>().get(),
+            AppState::Paused
+        );
+        set_order(&mut app, u, Order::MoveTo(GridPos::new(3, 0)));
+        for _ in 0..10 {
+            tick(&mut app, 0.1);
+        }
+        assert_eq!(
+            grid_pos(&app, u),
+            GridPos::new(0, 0),
+            "nothing moves while paused"
+        );
+        assert_eq!(
+            order(&app, u),
+            Order::MoveTo(GridPos::new(3, 0)),
+            "the order survives the pause"
+        );
+        app.world_mut()
+            .resource_mut::<NextState<AppState>>()
+            .set(AppState::Playing);
+        for _ in 0..15 {
+            tick(&mut app, 0.1);
+        }
+        assert_eq!(
+            grid_pos(&app, u),
+            GridPos::new(3, 0),
+            "resumes and completes the order"
+        );
+    }
+
+    #[test]
+    fn space_does_not_resume_a_finished_mission() {
+        let mut app = headless_app(Grid::new(4, 1), 1);
+        let _p = spawn_unit(&mut app, Faction::Player, GridPos::new(0, 0));
+        let e = spawn_unit(&mut app, Faction::Enemy, GridPos::new(3, 0));
+        kill(&mut app, e);
+        tick(&mut app, 0.1);
+        tick(&mut app, 0.1);
+        assert_eq!(
+            *app.world().resource::<State<AppState>>().get(),
+            AppState::Paused
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Space);
+        tick(&mut app, 0.1);
+        tick(&mut app, 0.1);
+        assert_eq!(
+            *app.world().resource::<State<AppState>>().get(),
+            AppState::Paused
+        );
     }
 }

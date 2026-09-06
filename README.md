@@ -20,7 +20,9 @@ right click on an enemy attacks, Space pauses, WASD pans, mouse wheel zooms.
     cargo fmt
     cargo run --features dynamic,inspector   # live entity inspector (egui)
     WT_SCREENSHOT=out.png cargo run --features dynamic   # screenshot after 2 s, then exit
-    cargo run --features dynamic -- --seed 42            # reproducible battle
+    cargo run --features dynamic -- --seed 42            # fixed dice stream (frame timing still varies)
+
+Linux builds link with mold and clang (sudo apt install mold clang); see .cargo/config.toml.
 
 Maps are edited with [Tiled](https://www.mapeditor.org/) (`sudo apt install tiled`).
 Design spec: `docs/superpowers/specs/`. Art and sound credits: `CREDITS.md`.
