@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
 
+use crate::animator::ShotFired;
 use crate::assets::GameAssets;
-use crate::sim::ShotFired;
 
 /// Marker for the SFX channel resource `AudioChannel<Sfx>`.
 #[derive(Resource)]

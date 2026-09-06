@@ -1,85 +1,59 @@
-//! Visual representation of units: sprites, death tint, gizmo overlays, tracers.
+//! Gizmo overlays (selection ring, health bars, AP pips) and shot tracers, read from the `Battle`.
+//! Planning previews (reach, path, hit chance) are added in Task 10.
 
 use bevy::color::palettes::css::{LIME, ORANGE, RED, WHITE, YELLOW};
 use bevy::prelude::*;
 
-use crate::assets::GameAssets;
-use crate::sim::ShotFired;
-use crate::unit::{Dead, Faction, Health, Order, Selected};
+use crate::animator::{ShotFired, UnitSprite};
+use crate::battle::{Battle, Side};
+use crate::orders::Selected;
 
 pub const UNIT_SPRITE_SIZE: f32 = 48.0;
-
-pub fn attach_sprites(
-    mut commands: Commands,
-    assets: Res<GameAssets>,
-    units: Query<(Entity, &Faction), Added<Faction>>,
-) {
-    for (entity, faction) in &units {
-        let image = match faction {
-            Faction::Player => assets.soldier.clone(),
-            Faction::Enemy => assets.enemy.clone(),
-        };
-        commands.entity(entity).insert(Sprite {
-            image,
-            custom_size: Some(Vec2::splat(UNIT_SPRITE_SIZE)),
-            ..default()
-        });
-    }
-}
-
-pub fn tint_dead(mut units: Query<(&mut Sprite, &mut Transform), Added<Dead>>) {
-    for (mut sprite, mut transform) in &mut units {
-        sprite.color = Color::srgb(0.35, 0.35, 0.35);
-        transform.translation.z = 5.0; // under the living
-    }
-}
 
 #[derive(Component)]
 pub struct Tracer {
     pub from: Vec2,
     pub to: Vec2,
     pub hit: bool,
+    pub reaction: bool,
     pub ttl: f32,
 }
 
-/// Selection rings, health bars and move-target markers, drawn with gizmos every frame.
-#[allow(clippy::type_complexity)]
+/// Selection ring, health bar and AP pips over every living unit.
 pub fn draw_overlays(
     mut gizmos: Gizmos,
-    units: Query<(
-        &Transform,
-        &Health,
-        &Faction,
-        &Order,
-        Option<&Selected>,
-        Option<&Dead>,
-    )>,
+    battle: Res<Battle>,
+    selected: Res<Selected>,
+    sprites: Query<(&UnitSprite, &Transform)>,
 ) {
-    for (transform, health, faction, order, selected, dead) in &units {
-        if dead.is_some() {
+    for (sprite, transform) in &sprites {
+        let Some(unit) = battle.unit(sprite.0).filter(|u| u.alive) else {
             continue;
-        }
+        };
         let p = transform.translation.truncate();
-        if selected.is_some() {
+        if selected.0 == Some(unit.id) {
             gizmos.circle_2d(
                 Isometry2d::from_translation(p),
                 UNIT_SPRITE_SIZE * 0.6,
                 WHITE,
             );
-            if let Order::MoveTo(goal) = order {
-                gizmos.circle_2d(Isometry2d::from_translation(goal.to_world()), 8.0, LIME);
-            }
         }
-        // Health bar just above the sprite.
         let width = UNIT_SPRITE_SIZE;
         let left = p + Vec2::new(-width / 2.0, UNIT_SPRITE_SIZE * 0.65);
-        let frac = (health.current.max(0) as f32 / health.max as f32).clamp(0.0, 1.0);
-        let colour = match faction {
-            Faction::Player => LIME,
-            Faction::Enemy => RED,
+        let frac = (unit.health.max(0) as f32 / unit.health_max as f32).clamp(0.0, 1.0);
+        let colour = match unit.side {
+            Side::Player => LIME,
+            Side::Enemy => RED,
         };
         gizmos.line_2d(left, left + Vec2::X * width, Color::srgb(0.2, 0.2, 0.2));
         gizmos.line_2d(left, left + Vec2::X * width * frac, colour);
+        // AP pips: one short tick per remaining AP, under the health bar.
+        let pip = width / unit.ap_max.max(1) as f32;
+        let row = left + Vec2::new(0.0, -5.0);
+        for i in 0..unit.ap.max(0) {
+            let x0 = row + Vec2::X * (i as f32 * pip + 1.0);
+            gizmos.line_2d(x0, x0 + Vec2::X * (pip - 2.0), Color::srgb(0.9, 0.9, 0.5));
+        }
     }
 }
 
@@ -89,7 +63,8 @@ pub fn spawn_tracers(mut commands: Commands, mut shots: MessageReader<ShotFired>
             from: shot.from,
             to: shot.to,
             hit: shot.hit,
-            ttl: 0.12,
+            reaction: shot.reaction,
+            ttl: if shot.reaction { 0.2 } else { 0.12 },
         });
     }
 }
@@ -106,7 +81,11 @@ pub fn draw_tracers(
             commands.entity(entity).despawn();
             continue;
         }
-        let colour = if tracer.hit { ORANGE } else { YELLOW };
+        let colour = match (tracer.reaction, tracer.hit) {
+            (true, _) => RED,
+            (false, true) => ORANGE,
+            (false, false) => YELLOW,
+        };
         gizmos.line_2d(tracer.from, tracer.to, colour);
     }
 }

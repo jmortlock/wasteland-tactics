@@ -1,7 +1,6 @@
 //! Enemy turn planner: returns the single next action for the enemy side,
 //! or `None` when no enemy has anything useful left to do (= end the turn).
 //! Pure: reads only `Battle`'s public queries.
-#![allow(dead_code)] // removed in Task 9
 
 use crate::battle::{Action, Battle, Side, Unit, tuning};
 use crate::grid::GridPos;

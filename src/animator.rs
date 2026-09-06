@@ -1,6 +1,5 @@
 //! Plays `BattleEvent`s from the queue at real-time pace: walks sprites cell by cell,
 //! holds on shots, tints the dead. The only code that moves unit sprites.
-#![allow(dead_code)] // removed in Task 9
 
 use bevy::prelude::*;
 

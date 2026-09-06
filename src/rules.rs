@@ -1,13 +1,17 @@
 //! Combat arithmetic. Pure functions plus the single seeded RNG resource.
 
-use bevy::prelude::*;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+#[cfg(test)]
+use rand::SeedableRng;
+#[cfg(test)]
 use rand_chacha::ChaCha8Rng;
 
 /// The one RNG the simulation uses, so a battle replays identically for a given seed.
-#[derive(Resource)]
+#[cfg(test)]
+#[derive(bevy::prelude::Resource)]
 pub struct GameRng(pub ChaCha8Rng);
 
+#[cfg(test)]
 impl GameRng {
     pub fn seeded(seed: u64) -> Self {
         Self(ChaCha8Rng::seed_from_u64(seed))

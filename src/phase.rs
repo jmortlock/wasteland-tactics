@@ -1,11 +1,13 @@
 //! Battle phase state machine. Input applies actions during `PlayerInput`; every
 //! action's events go through `Animating`; the enemy turn alternates planner + animation.
-#![allow(dead_code)] // removed in Task 9
 
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
+use bevy_ecs_tiled::prelude::TiledMapAsset;
 
+use crate::animator::{Animation, UnitSprite};
+use crate::assets::GameAssets;
 use crate::battle::{Action, ActionError, Battle, BattleEvent, Side};
 use crate::planner::plan_enemy_action;
 
@@ -73,6 +75,40 @@ pub fn drive_enemy_turn(
     };
     queue.0.extend(events);
     next.set(AppState::Animating);
+}
+
+/// `R`: rebuild the battle from the map with the same seed and respawn the sprites.
+#[allow(clippy::too_many_arguments)]
+pub fn restart(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    battle: Option<ResMut<Battle>>,
+    assets: Option<Res<GameAssets>>,
+    maps: Res<Assets<TiledMapAsset>>,
+    seed: Res<BattleSeed>,
+    mut queue: ResMut<EventQueue>,
+    mut animation: ResMut<Animation>,
+    sprites: Query<Entity, With<UnitSprite>>,
+    mut next: ResMut<NextState<AppState>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyR) {
+        return;
+    }
+    let (Some(mut battle), Some(assets)) = (battle, assets) else {
+        return;
+    };
+    let Some(map) = maps.get(&assets.map).map(|asset| &asset.map) else {
+        return;
+    };
+    for entity in &sprites {
+        commands.entity(entity).despawn();
+    }
+    *battle = Battle::from_tiled(map, seed.0);
+    queue.0.clear();
+    *animation = Animation::default();
+    crate::map::spawn_unit_sprites(&mut commands, &battle, &assets);
+    info!("battle restarted with seed {}", seed.0);
+    next.set(AppState::PlayerInput);
 }
 
 #[cfg(test)]

@@ -2,7 +2,9 @@
 
 use bevy::prelude::*;
 
-use crate::state::{AppState, MissionOutcome};
+use crate::battle::Battle;
+use crate::battle::{Outcome, Side};
+use crate::phase::AppState;
 
 #[derive(Component)]
 pub struct StatusText;
@@ -26,7 +28,9 @@ pub fn spawn_overlay(mut commands: Commands) {
     ));
     commands.spawn((
         Name::new("controls hint"),
-        Text::new("LMB select  RMB move/attack  1-4 squad  Space pause  WASD pan  wheel zoom"),
+        Text::new(
+            "LMB select  hover = path/AP or hit%  RMB move/shoot  1-4 squad  Enter end turn  R restart  WASD pan  wheel zoom",
+        ),
         TextFont {
             font_size: FontSize::Px(16.0),
             ..default()
@@ -43,17 +47,19 @@ pub fn spawn_overlay(mut commands: Commands) {
 
 pub fn update_overlay(
     state: Res<State<AppState>>,
-    outcome: Option<Res<MissionOutcome>>,
+    battle: Option<Res<Battle>>,
     mut text: Single<&mut Text, With<StatusText>>,
 ) {
-    let label = match (outcome.as_deref(), state.get()) {
-        (Some(MissionOutcome::Victory), _) => "VICTORY",
-        (Some(MissionOutcome::Defeat), _) => "DEFEAT",
-        (None, AppState::Paused) => "PAUSED",
-        (None, AppState::Loading) => "Loading...",
-        (None, AppState::Playing) => "",
+    let label = match (state.get(), battle.as_deref()) {
+        (AppState::Loading, _) | (_, None) => "Loading...".to_string(),
+        (_, Some(b)) => match (b.outcome(), b.turn()) {
+            (Some(Outcome::Victory), _) => "VICTORY".to_string(),
+            (Some(Outcome::Defeat), _) => "DEFEAT".to_string(),
+            (None, Side::Enemy) => "ENEMY TURN".to_string(),
+            (None, Side::Player) => format!("YOUR TURN {}", b.turn_number()),
+        },
     };
     if text.0 != label {
-        text.0 = label.to_string();
+        text.0 = label;
     }
 }

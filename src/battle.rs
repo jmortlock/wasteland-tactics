@@ -1,7 +1,6 @@
 //! The pure turn-based battle engine. No Bevy systems, no entities: units are
 //! addressed by `UnitId`, which indexes `Battle::units`. Presentation applies
 //! `Action`s and animates the returned `BattleEvent`s; nothing else mutates state.
-#![allow(dead_code)] // removed in Task 9 when the engine is wired into the app
 
 use std::collections::HashMap;
 

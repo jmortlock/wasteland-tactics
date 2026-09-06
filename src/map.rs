@@ -5,11 +5,12 @@ use ::tiled::PropertyValue;
 use bevy::prelude::*;
 use bevy_ecs_tiled::prelude::*;
 
-use crate::battle::Side;
-use crate::grid::{CoverSides, Grid, GridPos};
-
+use crate::animator::UnitSprite;
 use crate::assets::GameAssets;
-use crate::unit::{Faction, unit_bundle};
+use crate::battle::{Battle, Side};
+use crate::grid::{CoverSides, Grid, GridPos};
+use crate::phase::BattleSeed;
+use crate::render::UNIT_SPRITE_SIZE;
 
 /// Builds the walkability/sight/cover grid from every tile layer's tile properties.
 /// Later layers override earlier ones for the same cell (walls layer sits above ground).
@@ -72,43 +73,58 @@ pub fn spawns_from_tiled(map: &::tiled::Map) -> Vec<(Side, GridPos)> {
 }
 
 /// Spawns the map entity anchored so grid cell (0,0) is the bottom-left tile at world (0,0).
-/// Units are spawned at z=10 and the dead at z=5, so map layers must stay below that.
+/// Unit sprites sit at z=10 (dead at 5, hover label at 20), so map layers stay below that.
 pub fn spawn_map(mut commands: Commands, assets: Res<GameAssets>) {
     commands.spawn((
         Name::new("map"),
         TiledMap(assets.map.clone()),
         TilemapAnchor::BottomLeft,
-        // Layers 1 z-unit apart (default is 100, which would bury units at z=10 under the walls layer).
         TiledMapLayerZOffset(1.0),
     ));
 }
 
-/// When the map finishes loading: build the `Grid` and spawn the units from its object layer.
+/// When the map finishes loading: build the `Battle` resource and one sprite per unit.
 pub fn on_map_created(
     mut commands: Commands,
     mut events: MessageReader<TiledEvent<MapCreated>>,
     maps: Res<Assets<TiledMapAsset>>,
+    assets: Res<GameAssets>,
+    seed: Res<BattleSeed>,
 ) {
     for event in events.read() {
         let Some(map) = event.get_map(&maps) else {
             continue;
         };
-        let grid = grid_from_tiled(map);
-        let spawns = spawns_from_tiled(map);
+        let battle = Battle::from_tiled(map, seed.0);
         info!(
-            "map ready: {}x{} grid, {} spawns",
-            grid.width(),
-            grid.height(),
-            spawns.len()
+            "map ready: {}x{} grid, {} units, seed {}",
+            battle.grid().width(),
+            battle.grid().height(),
+            battle.units().len(),
+            seed.0
         );
-        commands.insert_resource(grid);
-        for (side, pos) in spawns {
-            let faction = match side {
-                Side::Player => Faction::Player,
-                Side::Enemy => Faction::Enemy,
-            };
-            commands.spawn(unit_bundle(faction, pos));
-        }
+        spawn_unit_sprites(&mut commands, &battle, &assets);
+        commands.insert_resource(battle);
+    }
+}
+
+/// One sprite entity per unit, tagged with its `UnitId`. Also used by restart.
+pub fn spawn_unit_sprites(commands: &mut Commands, battle: &Battle, assets: &GameAssets) {
+    for unit in battle.units() {
+        let (name, image) = match unit.side {
+            Side::Player => ("Soldier", assets.soldier.clone()),
+            Side::Enemy => ("Raider", assets.enemy.clone()),
+        };
+        commands.spawn((
+            Name::new(format!("{name} {}", unit.id.0)),
+            UnitSprite(unit.id),
+            Sprite {
+                image,
+                custom_size: Some(Vec2::splat(UNIT_SPRITE_SIZE)),
+                ..default()
+            },
+            Transform::from_translation(unit.pos.to_world().extend(10.0)),
+        ));
     }
 }
 

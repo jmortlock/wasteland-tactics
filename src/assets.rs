@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy_ecs_tiled::prelude::TiledMapAsset;
 use bevy_kira_audio::AudioSource;
 
-use crate::grid::Grid;
-use crate::state::AppState;
+use crate::battle::Battle;
+use crate::phase::AppState;
 
 #[derive(Resource)]
 pub struct GameAssets {
@@ -26,17 +26,17 @@ pub fn load_assets(mut commands: Commands, server: Res<AssetServer>) {
     });
 }
 
-/// Moves to `Playing` once the images are in and the map has produced a `Grid`.
+/// Moves to the player's first turn once the images are in and the map produced a `Battle`.
 pub fn check_loaded(
     server: Res<AssetServer>,
     assets: Res<GameAssets>,
-    grid: Option<Res<Grid>>,
+    battle: Option<Res<Battle>>,
     mut next: ResMut<NextState<AppState>>,
 ) {
     let images_ready = server.is_loaded_with_dependencies(&assets.soldier)
         && server.is_loaded_with_dependencies(&assets.enemy);
-    if images_ready && grid.is_some() {
-        info!("assets loaded, starting mission");
-        next.set(AppState::Playing);
+    if images_ready && battle.is_some() {
+        info!("assets loaded, your turn");
+        next.set(AppState::PlayerInput);
     }
 }

@@ -1,33 +1,24 @@
-mod ai;
 mod animator;
 mod assets;
 mod audio;
 mod battle;
 mod camera;
-mod combat;
 mod debug;
 mod grid;
 mod map;
-mod movement;
 mod orders;
 mod phase;
 mod planner;
 mod presentation;
 mod render;
 mod rules;
-mod sim;
-mod state;
-mod test_support;
 mod ui;
-mod unit;
 
 use bevy::prelude::*;
 use bevy_ecs_tiled::prelude::TiledPlugin;
 
+use crate::phase::{AppState, BattleSeed, EventQueue};
 use crate::presentation::PresentationPlugin;
-use crate::rules::GameRng;
-use crate::sim::SimulationPlugin;
-use crate::state::AppState;
 
 fn main() {
     let seed = seed_from_args().unwrap_or_else(|| {
@@ -53,12 +44,13 @@ fn main() {
         )
         .add_plugins((TiledPlugin::default(), bevy_kira_audio::AudioPlugin))
         .init_state::<AppState>()
-        .insert_resource(GameRng::seeded(seed))
-        .add_plugins((SimulationPlugin, PresentationPlugin))
+        .insert_resource(BattleSeed(seed))
+        .init_resource::<EventQueue>()
+        .add_plugins(PresentationPlugin)
         .run();
 }
 
-/// `--seed N` makes a battle reproducible.
+/// `--seed N` replays the same dice: with identical inputs the battle is identical.
 fn seed_from_args() -> Option<u64> {
     let mut args = std::env::args();
     while let Some(arg) = args.next() {
