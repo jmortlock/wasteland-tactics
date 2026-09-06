@@ -1,3 +1,5 @@
+mod grid;
+
 use bevy::prelude::*;
 
 fn main() {
