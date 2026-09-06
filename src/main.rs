@@ -9,6 +9,7 @@ mod grid;
 mod map;
 mod movement;
 mod orders;
+mod planner;
 mod presentation;
 mod render;
 mod rules;

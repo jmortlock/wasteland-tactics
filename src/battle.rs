@@ -584,6 +584,10 @@ impl Battle {
         }
         Battle::new(grid, units, seed)
     }
+
+    pub fn units_mut_for_test(&mut self) -> &mut Vec<Unit> {
+        &mut self.units
+    }
 }
 
 #[cfg(test)]
