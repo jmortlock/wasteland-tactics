@@ -1,4 +1,5 @@
 mod ai;
+mod animator;
 mod assets;
 mod audio;
 mod battle;
@@ -9,6 +10,7 @@ mod grid;
 mod map;
 mod movement;
 mod orders;
+mod phase;
 mod planner;
 mod presentation;
 mod render;

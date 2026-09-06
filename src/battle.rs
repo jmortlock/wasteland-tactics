@@ -588,6 +588,10 @@ impl Battle {
     pub fn units_mut_for_test(&mut self) -> &mut Vec<Unit> {
         &mut self.units
     }
+
+    pub fn force_outcome_for_test(&mut self, outcome: Outcome) {
+        self.outcome = Some(outcome);
+    }
 }
 
 #[cfg(test)]
