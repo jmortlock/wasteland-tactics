@@ -1,15 +1,19 @@
 //! Turns a Tiled map into the `Grid` resource and unit spawn list.
 //! The pure functions here are tested by loading `assets/maps/mission01.tmx` from disk.
 
+use ::tiled::PropertyValue;
 use bevy::prelude::*;
-use tiled::PropertyValue;
+use bevy_ecs_tiled::prelude::*;
 
 use crate::grid::{CoverSides, Grid, GridPos};
 use crate::unit::Faction;
 
+use crate::assets::GameAssets;
+use crate::unit::unit_bundle;
+
 /// Builds the walkability/sight/cover grid from every tile layer's tile properties.
 /// Later layers override earlier ones for the same cell (walls layer sits above ground).
-pub fn grid_from_tiled(map: &tiled::Map) -> Grid {
+pub fn grid_from_tiled(map: &::tiled::Map) -> Grid {
     let (w, h) = (map.width as i32, map.height as i32);
     let mut grid = Grid::new(w, h);
     for layer in map.layers() {
@@ -43,7 +47,7 @@ pub fn grid_from_tiled(map: &tiled::Map) -> Grid {
 }
 
 /// Reads point objects with a `faction` property from every object layer.
-pub fn spawns_from_tiled(map: &tiled::Map) -> Vec<(Faction, GridPos)> {
+pub fn spawns_from_tiled(map: &::tiled::Map) -> Vec<(Faction, GridPos)> {
     let h = map.height as i32;
     let (tw, th) = (map.tile_width as f32, map.tile_height as f32);
     let mut out = Vec::new();
@@ -67,12 +71,49 @@ pub fn spawns_from_tiled(map: &tiled::Map) -> Vec<(Faction, GridPos)> {
     out
 }
 
+/// Spawns the map entity anchored so grid cell (0,0) is the bottom-left tile at world (0,0).
+/// Units are spawned at z=10 and the dead at z=5, so map layers must stay below that.
+pub fn spawn_map(mut commands: Commands, assets: Res<GameAssets>) {
+    commands.spawn((
+        Name::new("map"),
+        TiledMap(assets.map.clone()),
+        TilemapAnchor::BottomLeft,
+        // Layers 1 z-unit apart (default is 100, which would bury units at z=10 under the walls layer).
+        TiledMapLayerZOffset(1.0),
+    ));
+}
+
+/// When the map finishes loading: build the `Grid` and spawn the units from its object layer.
+pub fn on_map_created(
+    mut commands: Commands,
+    mut events: MessageReader<TiledEvent<MapCreated>>,
+    maps: Res<Assets<TiledMapAsset>>,
+) {
+    for event in events.read() {
+        let Some(map) = event.get_map(&maps) else {
+            continue;
+        };
+        let grid = grid_from_tiled(map);
+        let spawns = spawns_from_tiled(map);
+        info!(
+            "map ready: {}x{} grid, {} spawns",
+            grid.width(),
+            grid.height(),
+            spawns.len()
+        );
+        commands.insert_resource(grid);
+        for (faction, pos) in spawns {
+            commands.spawn(unit_bundle(faction, pos));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn load() -> tiled::Map {
-        tiled::Loader::new()
+    fn load() -> ::tiled::Map {
+        ::tiled::Loader::new()
             .load_tmx_map("assets/maps/mission01.tmx")
             .expect("mission01.tmx loads")
     }

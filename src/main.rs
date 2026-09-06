@@ -2,10 +2,15 @@
 #![allow(dead_code)]
 
 mod ai;
+mod assets;
+mod camera;
 mod combat;
+mod debug;
 mod grid;
 mod map;
 mod movement;
+mod presentation;
+mod render;
 mod rules;
 mod sim;
 mod state;
@@ -13,8 +18,22 @@ mod test_support;
 mod unit;
 
 use bevy::prelude::*;
+use bevy_ecs_tiled::prelude::TiledPlugin;
+
+use crate::presentation::PresentationPlugin;
+use crate::rules::GameRng;
+use crate::sim::SimulationPlugin;
+use crate::state::AppState;
 
 fn main() {
+    let seed = seed_from_args().unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    });
+    println!("seed {seed}");
+
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -25,12 +44,23 @@ fn main() {
                         ..default()
                     }),
                     ..default()
-                }),
+                })
+                .disable::<bevy::audio::AudioPlugin>(),
         )
-        .add_systems(Startup, spawn_camera)
+        .add_plugins((TiledPlugin::default(), bevy_kira_audio::AudioPlugin))
+        .init_state::<AppState>()
+        .insert_resource(GameRng::seeded(seed))
+        .add_plugins((SimulationPlugin, PresentationPlugin))
         .run();
 }
 
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+/// `--seed N` makes a battle reproducible.
+fn seed_from_args() -> Option<u64> {
+    let mut args = std::env::args();
+    while let Some(arg) = args.next() {
+        if arg == "--seed" {
+            return args.next()?.parse().ok();
+        }
+    }
+    None
 }
